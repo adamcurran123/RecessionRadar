@@ -32,67 +32,48 @@ def get_yield_curve():
         return "Error fetching yield curve"
 
 def get_hedge_fund_positions():
-    """Fetch latest 13F filings for BlackRock, Scion, Berkshire Hathaway"""
+    """Fetch latest stock prices for major hedge funds and key stocks"""
     funds = {
         "BlackRock": "BLK",
-        "Berkshire Hathaway": "BRK-B"
+        "Berkshire Hathaway": "BRK-B",
+        "Vanguard": "VOO",
+        "Bridgewater": "GLD"
     }
     fund_positions = {}
     
     for fund, ticker in funds.items():
         try:
             stock = yf.Ticker(ticker)
-            fund_positions[fund] = stock.history(period="1mo")["Close"].iloc[-1]
+            fund_positions[fund] = stock.history(period="1d")["Close"].iloc[-1]
         except:
             fund_positions[fund] = "Error fetching data"
     
-    # Scion is a hedge fund, not a publicly traded company, so we use WhaleWisdom
-    try:
-        url = "https://whalewisdom.com/filer/scion-asset-management-llc"
-        response = requests.get(url)
-        if response.status_code == 200:
-            fund_positions["Scion"] = "13F filings available"
-        else:
-            fund_positions["Scion"] = "Error fetching data"
-    except:
-        fund_positions["Scion"] = "Error fetching data"
-    
     return fund_positions
 
-def calculate_recession_score(fed_rate, yield_curve, hedge_funds):
-    """Calculate a recession probability score from 1 to 10 based on economic indicators."""
-    score = 0
+def get_stock_changes():
+    """Fetch daily percentage changes for key stocks"""
+    stocks = {
+        "S&P 500": "^GSPC",
+        "Apple": "AAPL",
+        "Tesla": "TSLA",
+        "Nvidia": "NVDA"
+    }
+    stock_changes = {}
     
-    # Interest Rate Impact
-    if isinstance(fed_rate, float):
-        if fed_rate > 5:
-            score += 3  # High interest rates indicate tightening conditions
-        elif fed_rate > 3:
-            score += 2
-        elif fed_rate > 1:
-            score += 1
+    for stock, ticker in stocks.items():
+        try:
+            stock_data = yf.Ticker(ticker).history(period="2d")
+            if len(stock_data) >= 2:
+                yesterday_close = stock_data["Close"].iloc[-2]
+                today_close = stock_data["Close"].iloc[-1]
+                percent_change = ((today_close - yesterday_close) / yesterday_close) * 100
+                stock_changes[stock] = percent_change
+            else:
+                stock_changes[stock] = "Not enough data"
+        except:
+            stock_changes[stock] = "Error fetching data"
     
-    # Yield Curve Inversion Impact
-    if isinstance(yield_curve, float):
-        if yield_curve < 0:
-            score += 3  # Negative spread is a classic recession indicator
-        elif yield_curve < 0.5:
-            score += 2
-    
-    # Hedge Fund Defensive Moves
-    hedge_score = 0
-    for fund, position in hedge_funds.items():
-        if position == "Error fetching data":
-            continue
-        if isinstance(position, float) and position < 0:  # If hedge funds are losing value
-            hedge_score += 2
-    if hedge_score > 2:
-        score += 2
-    elif hedge_score > 0:
-        score += 1
-    
-    # Normalize score to 1-10 range
-    return min(10, max(1, score))
+    return stock_changes
 
 def print_banner():
     """Prints a styled banner with 'RECCTEST'"""
@@ -111,8 +92,8 @@ def run_recession_checklist():
     fed_rate = get_fed_interest_rates()
     yield_curve = get_yield_curve()
     hedge_funds = get_hedge_fund_positions()
+    stock_changes = get_stock_changes()
     
-    # Display Data
     rate_color = Fore.GREEN if fed_rate < 3 else Fore.YELLOW if fed_rate < 5 else Fore.RED
     print(f"1️⃣ Fed Interest Rate: {rate_color}{fed_rate}% (Below 3% = Easy Money, Above 5% = Recession Risk)" + Style.RESET_ALL)
     
@@ -123,9 +104,11 @@ def run_recession_checklist():
     for fund, position in hedge_funds.items():
         print(f"   - {fund}: {position}")
     
-    # Calculate Recession Score
-    recession_score = calculate_recession_score(fed_rate, yield_curve, hedge_funds)
-    print(f"\n⚠️ Recession Probability Score: {Fore.RED if recession_score >= 7 else Fore.YELLOW if recession_score >= 4 else Fore.GREEN}{recession_score}/10" + Style.RESET_ALL)
+    print("\n📈 Stock Market Daily Changes:")
+    for stock, change in stock_changes.items():
+        color = Fore.GREEN if isinstance(change, float) and change > 0 else Fore.RED
+        print(f"   - {stock}: {color}{change:.2f}%" + Style.RESET_ALL)
+    
     print("\n======================================")
     
     input("\nPress Enter to exit...")
