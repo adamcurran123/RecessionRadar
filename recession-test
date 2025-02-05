@@ -31,31 +31,34 @@ def get_yield_curve():
     except:
         return "Error fetching yield curve"
 
-def get_stock_data(tickers):
-    """Fetch stock prices and percentage changes"""
-    stock_data = {}
-    
-    for stock, ticker in tickers.items():
+def get_latest_hedge_fund_moves():
+    """Fetch recent hedge fund buys and sells from WhaleWisdom"""
+    hedge_funds = ["BlackRock", "Berkshire Hathaway", "Vanguard", "Bridgewater"]
+    hedge_movements = {}
+    for fund in hedge_funds:
         try:
-            stock_hist = yf.Ticker(ticker).history(period="2d")
-            if len(stock_hist) >= 2:
-                prev_close = stock_hist["Close"].iloc[-2]
-                latest_close = stock_hist["Close"].iloc[-1]
-                percent_change = ((latest_close - prev_close) / prev_close) * 100
-                stock_data[stock] = {"price": latest_close, "change": percent_change}
+            url = f"https://whalewisdom.com/filer/{fund.lower().replace(' ', '-')}-llc"
+            response = requests.get(url)
+            if response.status_code == 200:
+                hedge_movements[fund] = "Recent 13F filings available"
             else:
-                stock_data[stock] = {"price": "N/A", "change": "N/A"}
+                hedge_movements[fund] = "Error fetching data"
         except:
-            stock_data[stock] = {"price": "Error", "change": "Error"}
-    
-    return stock_data
+            hedge_movements[fund] = "Error fetching data"
+    return hedge_movements
 
 def print_banner():
-    """Prints a rainbow-colored banner with 'RECCTEST'"""
+    """Prints the ASCII banner 'RECCTEST' with rainbow colors"""
     colors = [Fore.RED, Fore.YELLOW, Fore.GREEN, Fore.CYAN, Fore.BLUE, Fore.MAGENTA]
-    text = "RECCTEST"
-    rainbow_text = "".join(colors[i % len(colors)] + char for i, char in enumerate(text))
-    print(rainbow_text + Style.RESET_ALL)
+    ascii_text = [
+        " ____  ____  ___  ___  ____  ____  ___  ____ ",
+        "(  _ \( ___)/ __)/ __)(_  _)( ___)/ __)(_  _)",
+        " )   / )__)( (__( (__   )(   )__) \__ \  )(  ",
+        "(_)/ (_)(____)\___)\___) (__) (____)(___/ (__) "
+    ]
+    
+    for i, line in enumerate(ascii_text):
+        print(colors[i % len(colors)] + line + Style.RESET_ALL)
 
 def run_recession_checklist():
     """Run all recession indicators and display results"""
@@ -64,42 +67,14 @@ def run_recession_checklist():
     
     fed_rate = get_fed_interest_rates()
     yield_curve = get_yield_curve()
+    hedge_movements = get_latest_hedge_fund_moves()
     
-    # Define tickers for hedge funds and key stocks
-    tickers = {
-        "BlackRock": "BLK",
-        "Berkshire Hathaway": "BRK-B",
-        "Vanguard": "VOO",
-        "Bridgewater": "GLD",
-        "S&P 500": "^GSPC",
-        "Apple": "AAPL",
-        "Tesla": "TSLA",
-        "Nvidia": "NVDA",
-        "Microsoft": "MSFT",
-        "Google": "GOOGL",
-        "Amazon": "AMZN",
-        "Meta": "META"
-    }
-    stock_data = get_stock_data(tickers)
+    print(f"1️⃣ Fed Interest Rate: {fed_rate}% (Below 3% = Easy Money, Above 5% = Recession Risk)")
+    print(f"2️⃣ Yield Curve Spread (10Y-2Y): {yield_curve} (Negative = Recession Signal)")
     
-    # Display Data
-    rate_color = Fore.GREEN if fed_rate < 3 else Fore.YELLOW if fed_rate < 5 else Fore.RED
-    print(f"1️⃣ Fed Interest Rate: {rate_color}{fed_rate}% (Below 3% = Easy Money, Above 5% = Recession Risk)" + Style.RESET_ALL)
-    
-    yc_color = Fore.GREEN if yield_curve > 0 else Fore.RED
-    print(f"2️⃣ Yield Curve Spread (10Y-2Y): {yc_color}{yield_curve} (Negative = Recession Signal)" + Style.RESET_ALL)
-    
-    print("\n💼 Hedge Fund Defensive Moves:")
-    for fund in ["BlackRock", "Berkshire Hathaway", "Vanguard", "Bridgewater"]:
-        data = stock_data.get(fund, {"price": "N/A", "change": "N/A"})
-        color = Fore.GREEN if isinstance(data["change"], float) and data["change"] > 0 else Fore.RED
-        print(f"   - {fund}: ${data['price']} ({color}{data['change']:.2f}%" + Style.RESET_ALL + ")")
-    
-    print("\n📈 Stock Market Daily Changes:")
-    for stock in ["S&P 500", "Apple", "Tesla", "Nvidia", "Microsoft", "Google", "Amazon", "Meta"]:
-        data = stock_data.get(stock, {"price": "N/A", "change": "N/A"})
-        color = Fore.GREEN if isinstance(data["change"], float) and data["change"] > 0 else Fore.RED
-        print(f"   - {stock}: ${data['price']} ({color}{data['change']:.2f}%" + Style.RESET_ALL + ")")
+    print("\n📊 Hedge Fund Recent Moves:")
+    for fund, movement in hedge_movements.items():
+        print(f"   - {fund}: {movement}")
     
     print("\n======================================")
     
