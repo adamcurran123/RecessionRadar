@@ -31,21 +31,55 @@ def get_yield_curve():
     except:
         return "Error fetching yield curve"
 
-def get_latest_hedge_fund_moves():
-    """Fetch recent hedge fund buys and sells from WhaleWisdom"""
-    hedge_funds = ["BlackRock", "Berkshire Hathaway", "Vanguard", "Bridgewater"]
-    hedge_movements = {}
+def get_stock_data(tickers):
+    """Fetch stock prices and percentage changes"""
+    stock_data = {}
+    for stock, ticker in tickers.items():
+        try:
+            stock_hist = yf.Ticker(ticker).history(period="2d")
+            if len(stock_hist) >= 2:
+                prev_close = stock_hist["Close"].iloc[-2]
+                latest_close = stock_hist["Close"].iloc[-1]
+                percent_change = round(((latest_close - prev_close) / prev_close) * 100, 2)
+                stock_data[stock] = {"price": round(latest_close, 2), "change": percent_change}
+            else:
+                stock_data[stock] = {"price": "N/A", "change": "N/A"}
+        except:
+            stock_data[stock] = {"price": "Error", "change": "Error"}
+    return stock_data
+
+def get_hedge_fund_activity():
+    """Fetch recent hedge fund purchases/sales from WhaleWisdom"""
+    hedge_funds = ["blackrock", "berkshire-hathaway", "vanguard", "bridgewater"]
+    hedge_moves = {}
     for fund in hedge_funds:
         try:
-            url = f"https://whalewisdom.com/filer/{fund.lower().replace(' ', '-')}-llc"
+            url = f"https://whalewisdom.com/filer/{fund}-llc"
             response = requests.get(url)
             if response.status_code == 200:
-                hedge_movements[fund] = "Recent 13F filings available"
+                hedge_moves[fund] = "Recent purchases/sales available"
             else:
-                hedge_movements[fund] = "Error fetching data"
+                hedge_moves[fund] = "Error fetching data"
         except:
-            hedge_movements[fund] = "Error fetching data"
-    return hedge_movements
+            hedge_moves[fund] = "Error fetching data"
+    return hedge_moves
+
+def calculate_recession_score(fed_rate, yield_curve):
+    """Calculate a recession probability score from 1 to 10."""
+    score = 0
+    if isinstance(fed_rate, float):
+        if fed_rate > 5:
+            score += 3
+        elif fed_rate > 3:
+            score += 2
+        elif fed_rate > 1:
+            score += 1
+    if isinstance(yield_curve, float):
+        if yield_curve < 0:
+            score += 3
+        elif yield_curve < 0.5:
+            score += 2
+    return min(10, max(1, score))
 
 def print_banner():
     """Prints the ASCII banner 'RECCTEST' with rainbow colors"""
@@ -56,7 +90,6 @@ def print_banner():
         " )   / )__)( (__( (__   )(   )__) \__ \  )(  ",
         "(_)/ (_)(____)\___)\___) (__) (____)(___/ (__) "
     ]
-    
     for i, line in enumerate(ascii_text):
         print(colors[i % len(colors)] + line + Style.RESET_ALL)
 
@@ -67,17 +100,34 @@ def run_recession_checklist():
     
     fed_rate = get_fed_interest_rates()
     yield_curve = get_yield_curve()
-    hedge_movements = get_latest_hedge_fund_moves()
+    recession_score = calculate_recession_score(fed_rate, yield_curve)
+    hedge_moves = get_hedge_fund_activity()
+    tickers = {
+        "S&P 500": "^GSPC",
+        "Apple": "AAPL",
+        "Tesla": "TSLA",
+        "Nvidia": "NVDA",
+        "Microsoft": "MSFT",
+        "Google": "GOOGL",
+        "Amazon": "AMZN",
+        "Meta": "META"
+    }
+    stock_data = get_stock_data(tickers)
     
-    print(f"1️⃣ Fed Interest Rate: {fed_rate}% (Below 3% = Easy Money, Above 5% = Recession Risk)")
-    print(f"2️⃣ Yield Curve Spread (10Y-2Y): {yield_curve} (Negative = Recession Signal)")
+    print(f"1️⃣ Fed Interest Rate: {fed_rate}%")
+    print(f"2️⃣ Yield Curve Spread (10Y-2Y): {yield_curve}")
+    print(f"\n⚠️ Recession Probability Score: {recession_score}/10")
     
     print("\n📊 Hedge Fund Recent Moves:")
-    for fund, movement in hedge_movements.items():
-        print(f"   - {fund}: {movement}")
+    for fund, activity in hedge_moves.items():
+        print(f"   - {fund.title().replace('-', ' ')}: {activity}")
+    
+    print("\n📈 Stock Market Data:")
+    for stock, data in stock_data.items():
+        color = Fore.GREEN if isinstance(data["change"], float) and data["change"] > 0 else Fore.RED
+        print(f"   - {stock}: ${data['price']} ({color}{data['change']}%" + Style.RESET_ALL + ")")
     
     print("\n======================================")
-    
     input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
