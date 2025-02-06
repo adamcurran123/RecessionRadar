@@ -52,17 +52,29 @@ def save_to_excel(data):
     """Save the collected data to an Excel file"""
     filename = "recession_tracker.xlsx"
     if os.path.exists(filename):
-        df = pd.read_excel(filename)
+        df = pd.read_excel(filename, engine="openpyxl")
     else:
         df = pd.DataFrame()
     
     new_entry = pd.DataFrame([data])
     df = pd.concat([df, new_entry], ignore_index=True)
-    df.to_excel(filename, index=False)
+    df.to_excel(filename, index=False, engine="openpyxl")
+
+def print_banner():
+    """Prints the ASCII banner 'RECCTEST' with rainbow colors"""
+    colors = [Fore.RED, Fore.YELLOW, Fore.GREEN, Fore.CYAN, Fore.BLUE, Fore.MAGENTA]
+    ascii_text = [
+        " ____  ____  ___  ___  ____  ____  ___  ____ ",
+        "(  _ \( ___)/ __)/ __)(_  _)( ___)/ __)(_  _)",
+        " )   / )__)( (__( (__   )(   )__) \__ \  )(  ",
+        "(_)/ (_)(____)\___)\___) (__) (____)(___/ (__) "
+    ]
+    for i, line in enumerate(ascii_text):
+        print(colors[i % len(colors)] + line + Style.RESET_ALL)
 
 def run_recession_checklist():
     """Run all recession indicators, display results, and save to Excel"""
-    print(Fore.CYAN + "RECCTEST" + Style.RESET_ALL)
+    print_banner()
     print(f"Date: {datetime.today().strftime('%Y-%m-%d')}\n")
     
     fed_rate = get_fed_interest_rates()
